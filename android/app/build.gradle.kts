@@ -56,7 +56,4 @@ dependencies {
     // replace with local JAR files:
     // implementation(files("libs/platform_sdk_v4.1.0326.jar"))
     implementation("com.github.urovosamples:usdk:4.1.5")
-    
-    // Sunmi P3 SDK for thermal printing
-    implementation("com.sunmi:printerx:1.0.18")
 }

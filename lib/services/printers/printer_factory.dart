@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'printer_interface.dart';
 import 'urovo_printer.dart';
 import 'sunmi_printer.dart';
@@ -16,18 +17,38 @@ class PrinterFactory {
       final String? deviceModel = await _getDeviceModel();
       
       if (deviceModel != null) {
-        if (deviceModel.toLowerCase().contains('urovo') || 
-            deviceModel.toLowerCase().contains('i9100')) {
+        final deviceLower = deviceModel.toLowerCase();
+        print('Device detection - checking: $deviceModel');
+        
+        if (deviceLower.contains('urovo') || 
+            deviceLower.contains('i9100') ||
+            deviceLower.contains('honeywell') ||
+            deviceLower.contains('rt40')) {
+          print('Detected Urovo/compatible device');
           _currentPrinter = UrovoPrinter();
           return _currentPrinter;
-        } else if (deviceModel.toLowerCase().contains('sunmi') || 
-                   deviceModel.toLowerCase().contains('p3')) {
-          _currentPrinter = SunmiPrinter();
+        } else if (deviceLower.contains('sunmi') || 
+                   deviceLower.contains('p3') ||
+                   deviceLower.contains('p2') ||
+                   deviceLower.contains('v2') ||
+                   deviceLower.contains('t2') ||
+                   deviceLower.contains('m2')) {
+          print('Detected Sunmi device');
+          _currentPrinter = SunmiPrinterWrapper();
           return _currentPrinter;
         }
       }
       
       // Fallback: Try to connect to each printer type
+      // Try Sunmi first since it's more common and has better plugin support
+      final sunmi = SunmiPrinterWrapper();
+      final sunmiStatus = await sunmi.checkConnection();
+      
+      if (sunmiStatus == PrinterConnectionStatus.connected) {
+        _currentPrinter = sunmi;
+        return _currentPrinter;
+      }
+      
       final urovo = UrovoPrinter();
       final urovoStatus = await urovo.checkConnection();
       
@@ -36,22 +57,14 @@ class PrinterFactory {
         return _currentPrinter;
       }
       
-      final sunmi = SunmiPrinter();
-      final sunmiStatus = await sunmi.checkConnection();
-      
-      if (sunmiStatus == PrinterConnectionStatus.connected) {
-        _currentPrinter = sunmi;
-        return _currentPrinter;
-      }
-      
-      // Default to Urovo if no printer is detected
-      _currentPrinter = UrovoPrinter();
+      // Default to Sunmi if no printer is detected (more common)
+      _currentPrinter = SunmiPrinterWrapper();
       return _currentPrinter;
       
     } catch (e) {
       print('Error detecting printer: $e');
-      // Default fallback
-      _currentPrinter = UrovoPrinter();
+      // Default fallback - prefer Sunmi
+      _currentPrinter = SunmiPrinterWrapper();
       return _currentPrinter;
     }
   }
@@ -63,7 +76,7 @@ class PrinterFactory {
         _currentPrinter = UrovoPrinter();
         break;
       case PrinterType.sunmi:
-        _currentPrinter = SunmiPrinter();
+        _currentPrinter = SunmiPrinterWrapper();
         break;
     }
     return _currentPrinter!;
@@ -73,7 +86,7 @@ class PrinterFactory {
   static List<PrinterInterface> getAllPrinters() {
     return [
       UrovoPrinter(),
-      SunmiPrinter(),
+      SunmiPrinterWrapper(),
     ];
   }
   
@@ -83,16 +96,24 @@ class PrinterFactory {
       case PrinterType.urovo:
         return UrovoPrinter();
       case PrinterType.sunmi:
-        return SunmiPrinter();
+        return SunmiPrinterWrapper();
     }
   }
   
   static Future<String?> _getDeviceModel() async {
     try {
       if (Platform.isAndroid) {
-        // This would typically use a platform channel to get device info
-        // For now, return null to use fallback detection
-        return null;
+        // Try to get device information through platform channel
+        const platform = MethodChannel('za.co.istreet.rycamera/device_info');
+        try {
+          final String? deviceModel = await platform.invokeMethod('getDeviceModel');
+          print('Detected device model: $deviceModel');
+          return deviceModel;
+        } catch (platformError) {
+          print('Platform channel error getting device model: $platformError');
+          // Fallback to checking Android system properties if available
+          return null;
+        }
       }
       return null;
     } catch (e) {

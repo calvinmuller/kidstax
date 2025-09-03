@@ -3,30 +3,25 @@ package za.co.istreet.rycamera
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Log
+import android.os.Build
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import android.device.PrinterManager
-import android.content.Context
 
 class MainActivity : FlutterActivity() {
     private val UROVO_CHANNEL = "za.co.istreet.rycamera/printer"
-    private val SUNMI_CHANNEL = "za.co.istreet.rycamera/sunmi_printer"
+    private val DEVICE_INFO_CHANNEL = "za.co.istreet.rycamera/device_info"
     private val UROVO_TAG = "UrovoPrinter"
-    private val SUNMI_TAG = "SunmiPrinter"
     
     // Urovo printer
     private var printerManager: PrinterManager? = null
-    
-    // Sunmi printer - Stub implementation (replace with actual SDK when available)
-    private var isSunmiAvailable = false
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         
-        // Initialize both printers
+        // Initialize Urovo printer
         initializeUrovoPrinter()
-        initializeSunmiPrinter()
         
         // Urovo Printer Method Channel
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, UROVO_CHANNEL).setMethodCallHandler { call, result ->
@@ -65,54 +60,13 @@ class MainActivity : FlutterActivity() {
             }
         }
         
-        // Sunmi Printer Method Channel
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SUNMI_CHANNEL).setMethodCallHandler { call, result ->
+        // Device Info Method Channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, DEVICE_INFO_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
-                "printBitmap" -> {
-                    val imageData = call.argument<ByteArray>("imageData")
-                    val width = call.argument<Int>("width") ?: 576
-                    val height = call.argument<Int>("height") ?: 0
-                    val alignment = call.argument<Int>("alignment") ?: 1
-                    
-                    if (imageData != null) {
-                        val success = printImageOnSunmi(imageData, width, height, alignment)
-                        if (success) {
-                            result.success("Image printed successfully on Sunmi P3")
-                        } else {
-                            result.error("PRINT_ERROR", "Failed to print image on Sunmi P3", null)
-                        }
-                    } else {
-                        result.error("INVALID_ARGUMENT", "Image data is null", null)
-                    }
-                }
-                "printText" -> {
-                    val text = call.argument<String>("text")
-                    val size = call.argument<Int>("size") ?: 24
-                    val align = call.argument<Int>("align") ?: 0
-                    
-                    if (text != null) {
-                        val success = printTextOnSunmi(text, size, align)
-                        if (success) {
-                            result.success("Text printed successfully on Sunmi P3")
-                        } else {
-                            result.error("PRINT_ERROR", "Failed to print text on Sunmi P3", null)
-                        }
-                    } else {
-                        result.error("INVALID_ARGUMENT", "Text is null", null)
-                    }
-                }
-                "setPrintDensity" -> {
-                    val density = call.argument<Int>("density") ?: 2
-                    val success = setSunmiPrintDensity(density)
-                    if (success) {
-                        result.success("Print density set to $density")
-                    } else {
-                        result.error("SETTING_ERROR", "Failed to set print density", null)
-                    }
-                }
-                "checkPrinterStatus" -> {
-                    val status = checkSunmiStatus()
-                    result.success(status)
+                "getDeviceModel" -> {
+                    val deviceModel = "${Build.MANUFACTURER} ${Build.MODEL}".trim()
+                    Log.i("DeviceInfo", "Device: $deviceModel")
+                    result.success(deviceModel)
                 }
                 else -> {
                     result.notImplemented()
@@ -137,50 +91,6 @@ class MainActivity : FlutterActivity() {
         } catch (e: Exception) {
             Log.e(UROVO_TAG, "Failed to initialize PrinterManager: ${e.message}", e)
             printerManager = null
-        }
-    }
-
-    private fun initializeSunmiPrinter() {
-        try {
-            Log.i(SUNMI_TAG, "Checking for Sunmi printer availability...")
-            
-            // TODO: Replace this stub with actual Sunmi SDK initialization
-            // Example with com.sunmi:printerx:1.0.18:
-            /*
-            try {
-                // Method 1: Using PrinterHelper (most common)
-                val printerHelper = com.sunmi.printerhelper.PrinterHelper.getInstance()
-                printerHelper.bindService(this, object : PrinterHelper.OnServiceConnectedListener {
-                    override fun onServiceConnected() {
-                        isSunmiAvailable = true
-                        Log.i(SUNMI_TAG, "Sunmi printer service connected")
-                    }
-                    override fun onServiceDisconnected() {
-                        isSunmiAvailable = false
-                        Log.w(SUNMI_TAG, "Sunmi printer service disconnected")
-                    }
-                })
-            } catch (e: Exception) {
-                Log.e(SUNMI_TAG, "Sunmi SDK not available: ${e.message}")
-                isSunmiAvailable = false
-            }
-            */
-            
-            // For now, detect Sunmi device by checking system properties
-            val manufacturer = android.os.Build.MANUFACTURER?.lowercase()
-            val model = android.os.Build.MODEL?.lowercase()
-            
-            if (manufacturer?.contains("sunmi") == true || model?.contains("p3") == true) {
-                isSunmiAvailable = true
-                Log.i(SUNMI_TAG, "Sunmi device detected (stub implementation)")
-            } else {
-                isSunmiAvailable = false
-                Log.i(SUNMI_TAG, "Non-Sunmi device detected")
-            }
-            
-        } catch (e: Exception) {
-            Log.e(SUNMI_TAG, "Error checking Sunmi availability: ${e.message}", e)
-            isSunmiAvailable = false
         }
     }
 
@@ -270,123 +180,9 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    // SUNMI PRINTER METHODS - Stub implementation for framework
-    // TODO: Replace with actual Sunmi SDK calls
-    private fun printImageOnSunmi(imageData: ByteArray, width: Int, height: Int, alignment: Int): Boolean {
-        return try {
-            if (!isSunmiAvailable) {
-                Log.e(SUNMI_TAG, "Sunmi printer not available")
-                return false
-            }
-
-            Log.d(SUNMI_TAG, "STUB: Would print image with width: $width, height: $height, alignment: $alignment")
-
-            // Convert byte array to bitmap for validation
-            val bitmap = BitmapFactory.decodeByteArray(imageData, 0, imageData.size)
-            if (bitmap == null) {
-                Log.e(SUNMI_TAG, "Failed to decode bitmap from image data")
-                return false
-            }
-
-            Log.i(SUNMI_TAG, "STUB: Bitmap dimensions: ${bitmap.width}x${bitmap.height}")
-
-            // TODO: Replace with actual Sunmi SDK calls:
-            /*
-            // Example implementation:
-            val printerHelper = PrinterHelper.getInstance()
-            printerHelper.printBitmap(bitmap, alignment) { result ->
-                if (result) {
-                    Log.i(SUNMI_TAG, "Sunmi bitmap printed successfully")
-                } else {
-                    Log.e(SUNMI_TAG, "Sunmi bitmap print failed")
-                }
-            }
-            */
-            
-            Log.w(SUNMI_TAG, "STUB: Sunmi image printing not implemented - add actual SDK calls")
-            return true // Return true for testing
-
-        } catch (e: Exception) {
-            Log.e(SUNMI_TAG, "Error in Sunmi image printing stub: ${e.message}", e)
-            false
-        }
-    }
-
-    private fun printTextOnSunmi(text: String, size: Int, align: Int): Boolean {
-        return try {
-            if (!isSunmiAvailable) {
-                Log.e(SUNMI_TAG, "Sunmi printer not available")
-                return false
-            }
-
-            Log.d(SUNMI_TAG, "STUB: Would print text: $text with size: $size, align: $align")
-
-            // TODO: Replace with actual Sunmi SDK calls:
-            /*
-            // Example implementation:
-            val printerHelper = PrinterHelper.getInstance()
-            printerHelper.setFontSize(size)
-            printerHelper.setAlignment(align)
-            printerHelper.printText(text) { result ->
-                if (result) {
-                    Log.i(SUNMI_TAG, "Sunmi text printed successfully")
-                } else {
-                    Log.e(SUNMI_TAG, "Sunmi text print failed")
-                }
-            }
-            */
-            
-            Log.w(SUNMI_TAG, "STUB: Sunmi text printing not implemented - add actual SDK calls")
-            return true // Return true for testing
-
-        } catch (e: Exception) {
-            Log.e(SUNMI_TAG, "Error in Sunmi text printing stub: ${e.message}", e)
-            false
-        }
-    }
-
-    private fun setSunmiPrintDensity(density: Int): Boolean {
-        return try {
-            if (!isSunmiAvailable) {
-                Log.e(SUNMI_TAG, "Sunmi printer not available")
-                return false
-            }
-
-            Log.d(SUNMI_TAG, "STUB: Would set print density to: $density")
-            
-            // TODO: Replace with actual Sunmi SDK calls:
-            /*
-            // Example implementation:
-            val printerHelper = PrinterHelper.getInstance()
-            val clampedDensity = density.coerceIn(1, 15)
-            printerHelper.setPrintDensity(clampedDensity) { result ->
-                if (result) {
-                    Log.i(SUNMI_TAG, "Sunmi density set successfully")
-                } else {
-                    Log.e(SUNMI_TAG, "Sunmi density setting failed")
-                }
-            }
-            */
-            
-            Log.w(SUNMI_TAG, "STUB: Sunmi density setting not implemented - add actual SDK calls")
-            return true // Return true for testing
-
-        } catch (e: Exception) {
-            Log.e(SUNMI_TAG, "Error in Sunmi density setting stub: ${e.message}", e)
-            false
-        }
-    }
-
-    private fun checkSunmiStatus(): String {
-        return if (isSunmiAvailable) "connected" else "disconnected"
-    }
-
     override fun onDestroy() {
         super.onDestroy()
-        // Clean up Sunmi printer if needed
-        if (isSunmiAvailable) {
-            // TODO: Add actual Sunmi SDK cleanup if needed
-            Log.i(SUNMI_TAG, "Sunmi printer cleanup completed")
-        }
+        // Clean up resources
+        printerManager = null
     }
 }

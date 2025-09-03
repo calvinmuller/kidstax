@@ -47,6 +47,9 @@ dependencies:
   
   # Image processing
   image: ^4.2.0
+  
+  # Thermal printer support for Sunmi devices
+  sunmi_printer_plus: ^2.0.4
 
 dev_dependencies:
   flutter_test:
