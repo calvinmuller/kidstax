@@ -1,76 +1,66 @@
-import 'package:flutter/services.dart';
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as path;
 import 'package:flutter/material.dart';
 import '../utils/image_processing.dart';
 import '../utils/ui_helpers.dart';
+import 'printers/printer_factory.dart';
+import 'printers/printer_interface.dart';
 
 class PrinterService {
-  // Platform channel for Urovo printer communication
-  static const platform = MethodChannel('za.co.istreet.rycamera/printer');
-
+  static PrinterInterface? _printer;
+  
+  /// Initialize the printer service with automatic detection
+  static Future<void> initialize() async {
+    _printer = await PrinterFactory.detectPrinter();
+    if (_printer != null) {
+      print('Initialized printer: ${_printer!.deviceName}');
+    }
+  }
+  
+  /// Get current printer instance
+  static PrinterInterface? get currentPrinter => _printer;
+  
+  /// Switch to a specific printer type
+  static void switchPrinter(PrinterType type) {
+    _printer = PrinterFactory.setPrinterType(type);
+    print('Switched to printer: ${_printer!.deviceName}');
+  }
+  
+  /// Main method to print a photo
   static Future<void> printPhoto(String imagePath, BuildContext context) async {
     try {
+      // Ensure printer is initialized
+      if (_printer == null) {
+        await initialize();
+      }
+      
+      if (_printer == null) {
+        throw Exception('No printer available');
+      }
+      
       // Show processing progress
       if (context.mounted) {
         UIHelpers.showKidFriendlyMessage(
           context, 
-          '📸✨ Smile! Making your photo super pretty for printing! 🌈',
+          '📸✨ Smile! Making your photo super pretty for ${_printer!.deviceName}! 🌈',
           const Color(0xFFFF69B4),
         );
       }
       
-      // Process image in background isolate to prevent UI blocking
-      final ProcessedImageResult result = await ImageProcessor.processImageInBackground(imagePath);
+      // Get printer-specific settings
+      final settings = _printer!.defaultSettings;
+      final int targetWidth = settings['imageWidth'] ?? 384;
+      
+      // Process image in background isolate with printer-specific width
+      final ProcessedImageResult result = await ImageProcessor.processImageInBackground(
+        imagePath,
+        targetWidth: targetWidth,
+      );
       
       if (result.error != null) {
         throw Exception(result.error);
       }
       
-      try {
-        // Use platform channel to communicate with native Urovo SDK
-        final printResult = await platform.invokeMethod('printImage', {
-          'imageData': result.processedBytes,
-          'width': result.width,
-          'height': result.height,
-        });
-        
-        print('Print result: $printResult');
-        
-        if (context.mounted) {
-          UIHelpers.showKidFriendlyMessage(
-            context,
-            '🎉🖨️ Hooray! Your awesome photo is printed! 🌟',
-            const Color(0xFF32CD32),
-            duration: 4,
-          );
-        }
-        
-      } catch (platformError) {
-        print('Platform channel error: $platformError');
-        
-        // Fallback: Save processed image locally
-        final Directory appDirectory = await getApplicationDocumentsDirectory();
-        final String processedPath = path.join(appDirectory.path, 'processed_for_urovo_${DateTime.now().millisecondsSinceEpoch}.png');
-        await File(processedPath).writeAsBytes(result.processedBytes);
-        
-        if (context.mounted) {
-          String errorMsg = 'Printing failed: ${platformError.toString()}';
-          if (errorMsg.contains('stub')) {
-            errorMsg = '📱✨ Oops! Printer is taking a nap! But don\'t worry, your beautiful photo is saved! 🌈📸';
-          } else {
-            errorMsg = '💾✨ Your pretty photo is safely saved! 📸🌟';
-          }
-          
-          UIHelpers.showKidFriendlyMessage(
-            context,
-            errorMsg,
-            Colors.orange,
-            duration: 5,
-          );
-        }
-      }
+      // Print using the selected printer
+      await _printer!.printProcessedImage(result, context);
       
     } catch (e) {
       print('Error processing photo: $e');
@@ -84,5 +74,48 @@ class PrinterService {
         );
       }
     }
+  }
+  
+  /// Print a test page
+  static Future<void> printTestPage(BuildContext context) async {
+    try {
+      if (_printer == null) {
+        await initialize();
+      }
+      
+      if (_printer == null) {
+        throw Exception('No printer available');
+      }
+      
+      await _printer!.printTestPage(context);
+      
+    } catch (e) {
+      print('Error printing test page: $e');
+      if (context.mounted) {
+        UIHelpers.showKidFriendlyMessage(
+          context,
+          '❌ Could not print test page',
+          Colors.red,
+        );
+      }
+    }
+  }
+  
+  /// Check printer connection status
+  static Future<PrinterConnectionStatus> checkPrinterStatus() async {
+    if (_printer == null) {
+      await initialize();
+    }
+    
+    if (_printer == null) {
+      return PrinterConnectionStatus.unknown;
+    }
+    
+    return await _printer!.checkConnection();
+  }
+  
+  /// Get list of available printer types
+  static List<PrinterInterface> getAvailablePrinters() {
+    return PrinterFactory.getAllPrinters();
   }
 }
