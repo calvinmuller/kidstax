@@ -27,13 +27,16 @@ class ProcessedImageResult {
 class ImageProcessor {
   
   // Main entry point for background image processing
-  static Future<ProcessedImageResult> processImageInBackground(String imagePath) async {
+  static Future<ProcessedImageResult> processImageInBackground(
+    String imagePath, 
+    {int targetWidth = 384}
+  ) async {
     final receivePort = ReceivePort();
     
     try {
       await Isolate.spawn(
         _processImageIsolate,
-        [receivePort.sendPort, ImageProcessingData(imagePath: imagePath, targetWidth: 384)]
+        [receivePort.sendPort, ImageProcessingData(imagePath: imagePath, targetWidth: targetWidth)]
       );
       
       final result = await receivePort.first as ProcessedImageResult;
