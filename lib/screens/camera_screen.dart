@@ -103,6 +103,7 @@ class _CameraScreenState extends State<CameraScreen> {
 
     setState(() {
       isProcessing = true;
+      isCameraInitialized = false; // Hide preview before disposing
     });
 
     try {
