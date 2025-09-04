@@ -27,13 +27,12 @@ class PrinterService {
   /// Main method to print a photo
   static Future<void> printPhoto(String imagePath, BuildContext context) async {
     try {
-      // Ensure printer is initialized
+      // Fallback initialization if needed (should rarely happen since we init on startup)
       if (_printer == null) {
         await initialize();
-      }
-      
-      if (_printer == null) {
-        throw Exception('No printer available');
+        if (_printer == null) {
+          throw Exception('No printer available - device may not be supported');
+        }
       }
       
       // Show processing progress
@@ -79,12 +78,12 @@ class PrinterService {
   /// Print a test page
   static Future<void> printTestPage(BuildContext context) async {
     try {
+      // Fallback initialization if needed (should rarely happen since we init on startup)
       if (_printer == null) {
         await initialize();
-      }
-      
-      if (_printer == null) {
-        throw Exception('No printer available');
+        if (_printer == null) {
+          throw Exception('No printer available - device may not be supported');
+        }
       }
       
       await _printer!.printTestPage(context);

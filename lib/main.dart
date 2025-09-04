@@ -11,8 +11,14 @@ Future<void> main() async {
   // Initialize cameras
   cameras = await availableCameras();
   
-  // Initialize printer service
-  await PrinterService.initialize();
+  // Initialize printer service early
+  try {
+    await PrinterService.initialize();
+    print('✅ Printer service initialized successfully');
+  } catch (e) {
+    print('⚠️ Warning: Printer initialization failed - $e');
+    // Continue app launch even if printer fails - it will retry when needed
+  }
   
   runApp(const MyApp());
 }
